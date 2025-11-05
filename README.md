@@ -118,4 +118,32 @@ according to project instructions, we need to support
 - S tyoe: sw
 - halt
 
-how to check the correstness of our program? 
+To check the correstness of our program, we need to compare standard output in `Sample_Testcases_SS_FS/output` and file dumped from our simulator. However, the standard dump method output txt file in same path where we give to simulator, eg, `Sample_Testcases_SS_FS/input/testcase0`, thus we need to modify output method
+
+```c++
+// datamem
+void outputDataMem();
+void outputDataMem(string outputDir); 
+// register file
+void outputRF(int cycle);
+void outputRF(int cycle, string outputDir); 
+// set core's output dir
+virtual void printState() = 0;
+void setOutputDirectory(string outputDir); 
+```
+
+Thus we can print all outputfile in result.
+```
+(base) [scatyf3@DESKTOP-SUAQVFP RISCVSim]$ cd /home/scatyf3/RISCVSim && ls -la result/
+total 64
+drwxr-xr-x  2 scatyf3 scatyf3 4096 Nov  5 15:12 .
+drwxr-xr-x 11 scatyf3 scatyf3 4096 Nov  5 15:12 ..
+-rw-r--r--  1 scatyf3 scatyf3 9000 Nov  5 15:12 FS_DMEMResult.txt
+-rw-r--r--  1 scatyf3 scatyf3 9000 Nov  5 15:12 SS_DMEMResult.txt
+-rw-r--r--  1 scatyf3 scatyf3 6412 Nov  5 15:12 StateResult_FS.txt
+-rw-r--r--  1 scatyf3 scatyf3  304 Nov  5 15:12 StateResult_SS.txt
+-rw-r--r--  1 scatyf3 scatyf3 9837 Nov  5 15:12 testcase0FS_RFResult.txt
+-rw-r--r--  1 scatyf3 scatyf3 6558 Nov  5 15:12 testcase0SS_RFResult.txt
+```
+
+based on this, we write a script to check the correctness

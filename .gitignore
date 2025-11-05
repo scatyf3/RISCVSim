@@ -40,6 +40,7 @@ PerformanceMetrics.txt
 
 # Test directories (generated files)
 test_output_*/
+result/
 
 # Build directories
 build/

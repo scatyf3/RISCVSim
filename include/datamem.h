@@ -12,6 +12,7 @@ public:
     bitset<32> readDataMem(bitset<32> Address);
     void writeDataMem(bitset<32> Address, bitset<32> WriteData);
     void outputDataMem();
+    void outputDataMem(string outputDir); 
     
     // Debug functions
     void debugPrintMemory(int start, int end);

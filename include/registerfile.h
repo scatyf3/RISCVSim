@@ -12,6 +12,7 @@ public:
     bitset<32> readRF(bitset<5> Reg_addr);
     void writeRF(bitset<5> Reg_addr, bitset<32> Wrt_reg_data);
     void outputRF(int cycle);
+    void outputRF(int cycle, string outputDir); 
     
     // Debug functions
     void debugPrintRegisters();

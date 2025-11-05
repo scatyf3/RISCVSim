@@ -4,6 +4,33 @@
 #include "include/registerfile.h"
 #include "include/core.h"
 
+// Function to extract testcase name from path
+string extractTestcaseName(const string& path) {
+    // Find the last occurrence of '/' or '\'
+    size_t lastSlash = path.find_last_of("/\\");
+    if (lastSlash != string::npos) {
+        string dirname = path.substr(lastSlash + 1);
+        // Check if it's a testcase directory
+        if (dirname.find("testcase") == 0) {
+            return dirname;
+        }
+    }
+    
+    // Fallback: look for testcase in the path
+    size_t pos = path.find("testcase");
+    if (pos != string::npos) {
+        // Extract testcase name (assume format like "testcase0", "testcase1", etc.)
+        size_t start = pos;
+        size_t end = start + 8; // "testcase" length
+        while (end < path.length() && isdigit(path[end])) {
+            end++;
+        }
+        return path.substr(start, end - start);
+    }
+    
+    return "default"; // fallback name
+}
+
 int main(int argc, char* argv[]) {
 	
 	string ioDir = "";
@@ -24,8 +51,19 @@ int main(int argc, char* argv[]) {
     DataMem dmem_ss = DataMem("SS", ioDir);
 	DataMem dmem_fs = DataMem("FS", ioDir);
 
+    // Extract testcase name and create result subdirectory
+    string testcaseName = extractTestcaseName(ioDir);
+    string resultDir = "result/" + testcaseName;
+    
+    cout << "Testcase: " << testcaseName << endl;
+    cout << "Result directory: " << resultDir << endl;
+
 	SingleStageCore SSCore(ioDir, imem, dmem_ss);
 	FiveStageCore FSCore(ioDir, imem, dmem_fs);
+
+    // Set output directory for both cores
+    SSCore.setOutputDirectory(resultDir);
+    FSCore.setOutputDirectory(resultDir);
 
     while (1) {
 		if (!SSCore.halted)
@@ -38,9 +76,9 @@ int main(int argc, char* argv[]) {
 			break;
     }
     
-	// dump SS and FS data mem.
-	dmem_ss.outputDataMem();
-	dmem_fs.outputDataMem();
+	// dump SS and FS data mem to result directory.
+	dmem_ss.outputDataMem(resultDir);
+	dmem_fs.outputDataMem(resultDir);
 
 	return 0;
 }
