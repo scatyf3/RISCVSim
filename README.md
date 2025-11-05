@@ -118,3 +118,4 @@ according to project instructions, we need to support
 - S tyoe: sw
 - halt
 
+how to check the correstness of our program? 
