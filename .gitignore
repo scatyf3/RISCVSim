@@ -47,9 +47,7 @@ build/
 dist/
 *.build/
 
-# Core dumps
-core
-core.*
+
 
 # Python cache (if any Python scripts)
 __pycache__/
