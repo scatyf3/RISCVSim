@@ -1,0 +1,88 @@
+# gen by ai
+# Compiled binaries
+simulator
+*.exe
+*.out
+*.app
+
+# Object files
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+
+# Debug information
+*.dSYM/
+*.pdb
+
+# IDE and editor files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/.ropeproject
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Test output files
+*RFResult.txt
+*DMEMResult.txt
+StateResult_*.txt
+PerformanceMetrics.txt
+
+# Test directories (generated files)
+test_output_*/
+
+# Build directories
+build/
+dist/
+*.build/
+
+# Core dumps
+core
+core.*
+
+# Python cache (if any Python scripts)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Windows specific
+*.lnk
+desktop.ini
+
+# Linux specific
+*.AppImage
+
+# MacOS specific
+.AppleDouble
+.LSOverride
+Icon
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Zone.Identifier files (Windows)
+*:Zone.Identifier
+*.Zone.Identifier
