@@ -11,9 +11,16 @@ DataMem::DataMem(string name, string ioDir) : id{name}, ioDir{ioDir} {
     dmem.open(filepath);
     
     if (dmem.is_open()) {
-        while (getline(dmem, line)) {      
-            DMem[i] = bitset<8>(line);
-            i++;
+        while (getline(dmem, line)) {
+            // Remove carriage return if present (for Windows line endings)
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+            // Skip empty lines
+            if (!line.empty()) {
+                DMem[i] = bitset<8>(line);
+                i++;
+            }
         }
     }
     else {
@@ -23,22 +30,22 @@ DataMem::DataMem(string name, string ioDir) : id{name}, ioDir{ioDir} {
 }
 
 bitset<32> DataMem::readDataMem(bitset<32> Address) {	
-    // read data memory - little endian
+    // read data memory - big endian (dmem.txt stores bytes in big-endian order)
     bitset<32> val;
     for (int i = 0; i < 4; i++) {
         bitset<32> byte_val = bitset<32>(DMem[Address.to_ulong() + i].to_ulong());
-        val |= (byte_val << (i * 8));
+        val |= (byte_val << ((3 - i) * 8));  // Changed: 3-i for big-endian
     }
     return val;
 }
 
 void DataMem::writeDataMem(bitset<32> Address, bitset<32> WriteData) {
-    // write into memory - little endian
+    // write into memory - big endian (dmem.txt stores bytes in big-endian order)
     uint32_t addr = Address.to_ulong();
     uint32_t data = WriteData.to_ulong();
     
     for (int i = 0; i < 4; i++) {
-        DMem[addr + i] = bitset<8>((data >> (i * 8)) & 0xFF);
+        DMem[addr + i] = bitset<8>((data >> ((3 - i) * 8)) & 0xFF);  // Changed: 3-i for big-endian
     }
 }
 

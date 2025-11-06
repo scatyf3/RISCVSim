@@ -13,8 +13,8 @@ public:
     bool halted = false;
     string ioDir;
     struct stateStruct state, nextState;
-    InsMem ext_imem;
-    DataMem ext_dmem;
+    InsMem& ext_imem;
+    DataMem& ext_dmem;
     
     Core(string ioDir, InsMem &imem, DataMem &dmem);
     virtual ~Core() = default;
@@ -23,29 +23,38 @@ public:
     virtual void setOutputDirectory(const string& outputDir);
     
 protected:
-    string opFilePath;
+    virtual string getStateOutputPath() const = 0;
     void printState(stateStruct state, int cycle);
 };
 
 class SingleStageCore : public Core {
 public:
     SingleStageCore(string ioDir, InsMem &imem, DataMem &dmem);
-    void step() override;
-    void printState() override;
-    void setOutputDirectory(const string& outputDir) override;
-    
+    void step();
+    void printState();
+    void setOutputDirectory(const string& outputDir);
+
+protected:
+    string getStateOutputPath() const override { return opFilePath; }
+
 private:
+    stateStruct state, nextState;
     string opFilePath;
+    int nopCycles = 0;
 };
 
 class FiveStageCore : public Core {
 public:
     FiveStageCore(string ioDir, InsMem &imem, DataMem &dmem);
-    void step() override;
-    void printState() override;
-    void setOutputDirectory(const string& outputDir) override;
-    
+    void step();
+    void printState();
+    void setOutputDirectory(const string& outputDir);
+
+protected:
+    string getStateOutputPath() const override { return opFilePath; }
+
 private:
+    stateStruct state, nextState;
     string opFilePath;
 };
 

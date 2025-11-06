@@ -59,26 +59,27 @@ int main(int argc, char* argv[]) {
     cout << "Result directory: " << resultDir << endl;
 
 	SingleStageCore SSCore(ioDir, imem, dmem_ss);
-	FiveStageCore FSCore(ioDir, imem, dmem_fs);
+	// FiveStageCore FSCore(ioDir, imem, dmem_fs);  // Disabled for now
 
-    // Set output directory for both cores
+    // Set output directory for single stage core
     SSCore.setOutputDirectory(resultDir);
-    FSCore.setOutputDirectory(resultDir);
+    // FSCore.setOutputDirectory(resultDir);  // Disabled for now
 
     while (1) {
 		if (!SSCore.halted)
 			SSCore.step();
 		
-		if (!FSCore.halted)
-			FSCore.step();
+		// Disable five-stage core execution for now
+		// if (!FSCore.halted)
+		//	FSCore.step();
 
-		if (SSCore.halted && FSCore.halted)
+		if (SSCore.halted) // && FSCore.halted)
 			break;
     }
     
-	// dump SS and FS data mem to result directory.
+	// dump SS data mem to result directory (FS disabled for now)
 	dmem_ss.outputDataMem(resultDir);
-	dmem_fs.outputDataMem(resultDir);
+	// dmem_fs.outputDataMem(resultDir);  // Disabled for now
 
 	return 0;
 }
