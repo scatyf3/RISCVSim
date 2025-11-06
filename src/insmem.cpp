@@ -13,9 +13,16 @@ InsMem::InsMem(string name, string ioDir) {
     
     if (imem.is_open()) {
         // 4 line x 8 bits = 32 bits instruction
-        while (getline(imem, line)) {      
-            IMem[i] = bitset<8>(line);
-            i++;
+        while (getline(imem, line)) {
+            // Remove carriage return if present (for Windows line endings)
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+            // Skip empty lines
+            if (!line.empty()) {
+                IMem[i] = bitset<8>(line);
+                i++;
+            }
         }                    
     }
     else {
@@ -25,11 +32,11 @@ InsMem::InsMem(string name, string ioDir) {
 }
 
 bitset<32> InsMem::readInstr(bitset<32> ReadAddress) {    
-    // read instruction memory
+    // read instruction memory - big endian (imem.txt stores bytes in big-endian order)
     bitset<32> val;
     for (int i = 0; i < 4; i++) {
         bitset<32> byte_val = bitset<32>(IMem[ReadAddress.to_ulong() + i].to_ulong());
-        val |= (byte_val << (i * 8));
+        val |= (byte_val << ((3 - i) * 8));  // Changed: 3-i for big-endian
     }
     return val;
 }

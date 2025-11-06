@@ -108,6 +108,8 @@ void RegisterFile::writeRF(bitset<5> Reg_addr, bitset<32> Wrt_reg_data) {
 
 ## SingleStageCore
 
+### target
+
 according to project instructions, we need to support
 - R type: add/sub/xor/or/and
 - I type: 
@@ -117,6 +119,8 @@ according to project instructions, we need to support
 - B type: beq/bne
 - S tyoe: sw
 - halt
+
+### build test pipeline
 
 To check the correstness of our program, we need to compare standard output in `Sample_Testcases_SS_FS/output` and file dumped from our simulator. However, the standard dump method output txt file in same path where we give to simulator, eg, `Sample_Testcases_SS_FS/input/testcase0`, thus we need to modify output method
 
@@ -134,16 +138,133 @@ void setOutputDirectory(string outputDir);
 
 Thus we can print all outputfile in result.
 ```
-(base) [scatyf3@DESKTOP-SUAQVFP RISCVSim]$ cd /home/scatyf3/RISCVSim && ls -la result/
-total 64
-drwxr-xr-x  2 scatyf3 scatyf3 4096 Nov  5 15:12 .
-drwxr-xr-x 11 scatyf3 scatyf3 4096 Nov  5 15:12 ..
--rw-r--r--  1 scatyf3 scatyf3 9000 Nov  5 15:12 FS_DMEMResult.txt
--rw-r--r--  1 scatyf3 scatyf3 9000 Nov  5 15:12 SS_DMEMResult.txt
--rw-r--r--  1 scatyf3 scatyf3 6412 Nov  5 15:12 StateResult_FS.txt
--rw-r--r--  1 scatyf3 scatyf3  304 Nov  5 15:12 StateResult_SS.txt
--rw-r--r--  1 scatyf3 scatyf3 9837 Nov  5 15:12 testcase0FS_RFResult.txt
--rw-r--r--  1 scatyf3 scatyf3 6558 Nov  5 15:12 testcase0SS_RFResult.txt
+(base) ➜  testcase0 git:(main) ✗ ls -a               
+.                  FS_DMEMResult.txt  SS_DMEMResult.txt  StateResult_FS.txt
+..                 FS_RFResult.txt    SS_RFResult.txt    StateResult_SS.txt
 ```
 
-based on this, we write a script to check the correctness
+based on this, we write a script to check the correctness, seen `test.py`
+
+
+### explain for each file
+
+FS/SS
+- FS: five stage version
+- SS: single stage version
+
+data
+- DMEMResult: data memory
+- StateResult: processor state at each cycle 
+- RFResult:  register file
+
+
+
+### implement
+
+IRL RISCV execute stage: IF - ID - EX - MEM - WB
+
+- check if nop
+- IF
+- check if halt
+- decode instruction(ID)
+    - `opcode`: instruct[6:0]
+    - `rd` (dest reg): instruct[11:7]
+    - `funct3`: instruct[14:12]
+    - `rs1` (source reg 1): instruct[19:15]
+    - `rs2` (source reg 2): instruct[24:20]
+    - `funct7`: instruct[31:25]
+- execute EX and MEM
+    - **R-type (opcode=0x33)**: (ADD, SUB, XOR, OR, AND)
+        - **EX**: ALU result = `rs1_val` (op) `rs2_val` (op determined by `funct3`/`funct7`)
+        - **WB**: `write_data` = ALU result
+    - **I-type (opcode=0x13)**: (ADDI, XORI, ORI, ANDI)
+        - **EX**: Get sign-extended `imm`; ALU result = `rs1_val` (op) `imm` (op determined by `funct3`)
+        - **WB**: `write_data` = ALU result
+    - **Load (opcode=0x03)**: (LW)
+        - **EX**: Get sign-extended `imm`; Address = `rs1_val` + `imm`
+        - **MEM**: Read from Data Memory at `Address`
+        - **WB**: `write_data` = Data from Memory
+    - **Store (opcode=0x23)**: (SW)
+        - **EX**: Get sign-extended S-type `imm` [31:25, 11:7]; Address = `rs1_val` + `imm`
+        - **MEM**: Write `rs2_val` to Data Memory at `Address`
+    - **Branch (opcode=0x63)**: (BEQ, BNE)
+        - **EX**: Get sign-extended B-type `imm`; Check condition (`rs1 == rs2` or `rs1 != rs2` based on `funct3`)
+        - **IF Update**: If (condition true), `nextPC` = `PC` + `imm`; else `nextPC` = `PC` + 4
+    - **JAL (opcode=0x6F)**:
+        - **EX**: Get sign-extended J-type `imm`
+        - **WB**: `write_data` = `PC` + 4 (return address)
+        - **IF Update**: `nextPC` = `PC` + `imm`
+    - **Default (others)**:
+        - **IF Update**: `nextPC` = `PC` + 4
+- WB
+
+
+
+### error fix
+
+#### mem
+
+fix error from core, to modify memory in core, we need `ext_imem` and `ext_dmem` to be reference instead of value, else, you can not dump the modified version of memory to txt
+
+in the given code, Core has following member variables
+
+```c++
+class Core {
+    public:
+        InsMem ext_imem; 
+        DataMem ext_dmem;
+};
+```
+
+in main code, we use core and memorys as follow
+
+```c++
+InsMem imem = InsMem("Imem", ioDir);
+DataMem dmem_ss = DataMem("SS", ioDir);
+DataMem dmem_fs = DataMem("FS", ioDir);
+
+SingleStageCore SSCore(ioDir, imem, dmem_ss);
+
+// do something to SSCore's dmem
+
+// dump dmem
+dmem_ss.outputDataMem(resultDir);
+```
+
+however, this code contains unexpected behaivor, since SSCore modify it's dmem_ss instead of dmem_ss in main, thus the dump result stays no change.
+
+Thus we need to change Core's member variables to reference
+
+```c++
+class Core {
+    public:
+        InsMem& ext_imem; 
+        DataMem& ext_dmem;
+};
+```
+
+#### file io
+```
+hexdump -C Sample_Testcases_SS_FS/input/testcase1/imem.txt | tail -5
+```
+
+我看到了问题！文件使用的是 Windows 风格的换行符 \r\n (0d 0a)，而且文件末尾没有换行符。这可能会导致读取的字符串包含回车符 \r，从而使bitset构造函数失败。
+
+#### data format
+
+different testcase has different data format, which is 
+
+```shell
+(base) ➜  RISCVSim git:(main) ✗ head -3 Sample_Testcases_SS_FS/output/testcase0/SS_RFResult.txt
+State of RF after executing cycle:  0
+00000000000000000000000000000000
+00000000101001010000000000000000
+(base) ➜  RISCVSim git:(main) ✗ head -3 Sample_Testcases_SS_FS/output/testcase2/SS_RFResult.txt
+State of RF after executing cycle:  0
+00000000000000000000000000000000
+00000000000000000000000000000000
+(base) ➜  RISCVSim git:(main) ✗ head -3 Sample_Testcases_SS_FS/output/testcase1/SS_RFResult.txt
+----------------------------------------------------------------------
+State of RF after executing cycle:0
+00000000000000000000000000000000
+```

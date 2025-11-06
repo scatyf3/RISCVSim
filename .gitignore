@@ -85,3 +85,8 @@ Icon
 # Zone.Identifier files (Windows)
 *:Zone.Identifier
 *.Zone.Identifier
+
+# Keep all sample output txt files
+!Sample_Testcases_SS_FS/output/
+!Sample_Testcases_SS_FS/output/*.txt
+!Sample_Testcases_SS_FS/output/**/*.txt

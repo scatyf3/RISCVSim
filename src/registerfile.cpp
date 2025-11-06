@@ -1,6 +1,6 @@
 #include "../include/registerfile.h"
 
-RegisterFile::RegisterFile(string ioDir): outputFile {ioDir + "RFResult.txt"} {
+RegisterFile::RegisterFile(string ioDir): outputFile {ioDir + "RFResult.txt"}, filePrefix("SS") {
     Registers.resize(32);  
     Registers[0] = bitset<32>(0);  
 }
@@ -20,6 +20,10 @@ void RegisterFile::writeRF(bitset<5> Reg_addr, bitset<32> Wrt_reg_data) {
     }
 }
 
+void RegisterFile::setFilePrefix(string prefix) {
+    filePrefix = prefix;
+}
+
 void RegisterFile::outputRF(int cycle) {
     ofstream rfout;
     if (cycle == 0)
@@ -28,7 +32,7 @@ void RegisterFile::outputRF(int cycle) {
         rfout.open(outputFile, std::ios_base::app);
         
     if (rfout.is_open()) {
-        rfout << "State of RF after executing cycle:\t" << cycle << endl;
+        rfout << "State of RF after executing cycle:  " << cycle << endl;
         for (int j = 0; j < 32; j++) {
             rfout << Registers[j] << endl;
         }
@@ -44,14 +48,8 @@ void RegisterFile::outputRF(int cycle, string outputDir) {
     string createDirCommand = "mkdir -p " + outputDir;
     system(createDirCommand.c_str());
     
-    // Extract the original filename pattern from outputFile
-    string filename;
-    size_t lastSlash = outputFile.find_last_of("/\\");
-    if (lastSlash != string::npos) {
-        filename = outputFile.substr(lastSlash + 1);
-    } else {
-        filename = outputFile;
-    }
+    // Always use the correct filename with prefix
+    string filename = filePrefix + "_RFResult.txt";
     
     // Generate new output path
     string outputPath = outputDir + "/" + filename;
@@ -63,7 +61,8 @@ void RegisterFile::outputRF(int cycle, string outputDir) {
         rfout.open(outputPath, std::ios_base::app);
         
     if (rfout.is_open()) {
-        rfout << "State of RF after executing cycle:\t" << cycle << endl;
+        rfout << "----------------------------------------------------------------------" << endl;
+        rfout << "State of RF after executing cycle:" << cycle << endl;
         for (int j = 0; j < 32; j++) {
             rfout << Registers[j] << endl;
         }
