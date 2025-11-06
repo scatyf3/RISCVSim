@@ -241,99 +241,66 @@ def create_submission_structure():
     merger.merge_files()
     merger.write_output('phase1/code/main.cpp')
     
-    # 创建编译说明
-    compilation_guide = """# RISC-V 模拟器编译指南
-
-## 编译方法
-
-```bash
-cd code/
-g++ -std=c++17 -o simulator main.cpp
-```
-
-## 运行方法
-
-```bash
-./simulator <input_directory>
-```
-
-例如：
-```bash
-./simulator ../../Sample_Testcases_SS_FS/input/testcase0
-```
-
-## 输出文件
-
-结果将生成在 `result/` 目录下：
-- `SS_DMEMResult.txt` - 单阶段数据存储器结果
-- `FS_DMEMResult.txt` - 五阶段数据存储器结果  
-- `StateResult_SS.txt` - 单阶段状态结果
-- `StateResult_FS.txt` - 五阶段状态结果
-- `<testcase>SS_RFResult.txt` - 单阶段寄存器文件结果
-- `<testcase>FS_RFResult.txt` - 五阶段寄存器文件结果
-
-## 支持的指令
-
-- **R型**: ADD, SUB, XOR, OR, AND
-- **I型**: ADDI, XORI, ORI, ANDI, LW
-- **J型**: JAL
-- **B型**: BEQ, BNE
-- **S型**: SW
-- **特殊**: HALT (0xFFFFFFFF)
+    # 拷贝 README.md 到 code 目录
+    import shutil
+    if os.path.exists('README.md'):
+        shutil.copy2('README.md', 'phase1/code/README.md')
+        print(f"✅ 拷贝项目文档: phase1/code/README.md")
+    
+    # 拷贝测试脚本到 code 目录
+    if os.path.exists('test.py'):
+        shutil.copy2('test.py', 'phase1/code/test.py')
+        print(f"✅ 拷贝测试脚本: phase1/code/test.py")
+    
+    # 拷贝测试用例到 code 目录
+    if os.path.exists('Sample_Testcases_SS_FS'):
+        shutil.copytree('Sample_Testcases_SS_FS', 'phase1/code/Sample_Testcases_SS_FS', dirs_exist_ok=True)
+        print(f"✅ 拷贝测试用例: phase1/code/Sample_Testcases_SS_FS")
+    
+    # 创建简单的编译脚本（不使用 Makefile）
+    compile_script = """#!/bin/bash
+# 简单编译脚本
+echo "编译 RISC-V 模拟器..."
+g++ -std=c++17 -Wall -Wextra -o simulator main.cpp
+if [ $? -eq 0 ]; then
+    echo "✅ 编译成功: simulator"
+else
+    echo "❌ 编译失败"
+    exit 1
+fi
 """
     
-    with open('phase1/submissions/COMPILATION_GUIDE.md', 'w', encoding='utf-8') as f:
-        f.write(compilation_guide)
+    with open('phase1/code/compile.sh', 'w', encoding='utf-8') as f:
+        f.write(compile_script)
     
-    print(f"✅ 创建编译指南: phase1/submissions/COMPILATION_GUIDE.md")
+    # 设置执行权限
+    import stat
+    os.chmod('phase1/code/compile.sh', stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
     
-    # 创建项目说明
-    readme = """# RISC-V 模拟器项目
-
-本项目实现了一个 RISC-V RV32I 指令集模拟器。
-
-## 项目结构
-
-```
-phase1/
-├── code/
-│   └── main.cpp          # 完整的自包含源代码
-└── submissions/
-    └── COMPILATION_GUIDE.md  # 编译和运行指南
-```
-
-## 特性
-
-- ✅ 支持 RV32I 基本指令集
-- ✅ 单阶段和五阶段流水线实现
-- ✅ 完整的内存管理（指令存储器、数据存储器）
-- ✅ 32个寄存器，R0恒为0
-- ✅ 字节可寻址内存，小端序
-- ✅ 统一的结果输出目录管理
-
-## 开发团队
-
-NYU ECE-6913 RISC-V 项目
-"""
+    print(f"✅ 创建编译脚本: phase1/code/compile.sh")
     
-    with open('phase1/submissions/README.md', 'w', encoding='utf-8') as f:
-        f.write(readme)
-    
-    print(f"✅ 创建项目说明: phase1/submissions/README.md")
+    # 拷贝 submission.md 到 submissions 目录
+    if os.path.exists('submission.md'):
+        shutil.copy2('submission.md', 'phase1/submissions/submission.md')
+        print(f"✅ 拷贝提交说明: phase1/submissions/submission.md")
     
     print("\n" + "=" * 60)
-    print("📦 提交包结构创建完成！")
+    print("📦 完整提交包结构创建完成！")
     print("=" * 60)
     print("\n目录结构:")
     print("phase1/")
     print("├── code/")
-    print("│   └── main.cpp")
+    print("│   ├── main.cpp                    # 合并的源代码")
+    print("│   ├── compile.sh                  # 编译脚本")
+    print("│   ├── test.py                     # 自动化测试")
+    print("│   ├── README.md                   # 项目文档")  
+    print("│   └── Sample_Testcases_SS_FS/    # 测试用例")
     print("└── submissions/")
-    print("    ├── README.md")
-    print("    └── COMPILATION_GUIDE.md")
+    print("    └── submission.md              # 提交说明")
     print("\n下一步:")
-    print("1. cd phase1/code && g++ -std=c++17 -o simulator main.cpp  # 测试编译")
-    print("2. cd ../.. && zip -r phase1.zip phase1/  # 创建提交压缩包")
+    print("1. cd phase1/code && ./compile.sh   # 测试编译")
+    print("2. python3 test.py                  # 运行测试")
+    print("3. cd ../.. && zip -r phase1.zip phase1/  # 创建提交压缩包")
     print()
 
 if __name__ == "__main__":
