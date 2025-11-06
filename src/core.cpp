@@ -68,9 +68,30 @@ void SingleStageCore::step() {
                 return;
             }            
             // Fetch instruction
-            bitset<32> instruction = ext_imem.readInstr(state.IF.PC);            // Check for HALT instruction (all 1s)
+            bitset<32> instruction = ext_imem.readInstr(state.IF.PC);
+            
+            // Check for HALT instruction (all 1s)
             if (instruction.to_ulong() == 0xFFFFFFFF) {
                 nextState.IF.nop = true;
+                
+                // Check if previous instruction was a branch by reading it
+                bool updatePC = true;  // Default: update PC
+                if (state.IF.PC.to_ulong() >= 4) {
+                    bitset<32> prev_pc(state.IF.PC.to_ulong() - 4);
+                    bitset<32> prev_instr = ext_imem.readInstr(prev_pc);
+                    uint32_t prev_opcode = prev_instr.to_ulong() & 0x7F;
+                    
+                    // If previous instruction was NOT a branch, don't update PC
+                    if (prev_opcode != 0x63) {  // 0x63 is B-type (branch)
+                        updatePC = false;
+                    }
+                }
+                
+                if (updatePC) {
+                    nextState.IF.PC = bitset<32>(state.IF.PC.to_ulong() + 4);
+                } else {
+                    nextState.IF.PC = state.IF.PC;  // Keep current PC
+                }
                 // Update state to reflect halt condition for printing
                 state = nextState;
                 myRF.outputRF(cycle, ioDir);

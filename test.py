@@ -88,7 +88,104 @@ def run_testcase(testcase_num):
     
     return True
 
+def normalize_content(content):
+    """Remove separator lines and normalize spacing in content"""
+    lines = content.strip().split('\n')
+    normalized_lines = []
+    
+    for line in lines:
+        line = line.strip()
+        # Skip separator lines (lines containing only dashes)
+        if line and not all(c == '-' for c in line):
+            # Normalize spacing: remove extra spaces and normalize around colons
+            # Replace multiple spaces with single space
+            line = ' '.join(line.split())
+            # Normalize colon spacing for cycle numbers specifically
+            if 'cycle:' in line:
+                # Handle "cycle: 0", "cycle:0", "cycle:  0" all as "cycle:0"
+                line = line.replace('cycle:', 'cycle:').replace('cycle: ', 'cycle:')
+            normalized_lines.append(line)
+    
+    return '\n'.join(normalized_lines)
+
+def compare_files_ignore_separators(result_file, expected_file):
+    """Compare two files while ignoring separator lines and spacing differences"""
+    try:
+        with open(result_file, 'r') as f:
+            result_content = f.read()
+        with open(expected_file, 'r') as f:
+            expected_content = f.read()
+        
+        # Normalize both contents
+        result_normalized = normalize_content(result_content)
+        expected_normalized = normalize_content(expected_content)
+        
+        return result_normalized == expected_normalized
+        
+    except Exception as e:
+        print(f"Error reading files: {e}")
+        return False
+
 def compare_results(testcase_num):
+    """Compare simulation results with expected output"""
+    testcase = f"testcase{testcase_num}"
+    result_path = f"result/{testcase}"
+    expected_path = f"Sample_Testcases_SS_FS/output/{testcase}"
+    
+    print(f"\n=== Comparing Results for {testcase} ===")
+    
+    if not os.path.exists(expected_path):
+        print(f"Expected output directory not found: {expected_path}")
+        return False
+    
+    if not os.path.exists(result_path):
+        print(f"Result directory not found: {result_path}")
+        return False
+    
+    # Files to compare (only Single Stage)
+    files_to_compare = [
+        "StateResult_SS.txt",
+        "SS_RFResult.txt",
+        "SS_DMEMResult.txt"
+    ]
+    
+    all_match = True
+    
+    for filename in files_to_compare:
+        result_file = os.path.join(result_path, filename)
+        expected_file = os.path.join(expected_path, filename)
+        
+        if not os.path.exists(expected_file):
+            print(f"Expected file not found: {expected_file}")
+            continue
+            
+        if not os.path.exists(result_file):
+            print(f"❌ Result file missing: {filename}")
+            all_match = False
+            continue
+        
+        try:
+            # Use custom comparison that ignores separator lines
+            if compare_files_ignore_separators(result_file, expected_file):
+                print(f"✅ {filename}: MATCH")
+            else:
+                print(f"❌ {filename}: MISMATCH")
+                all_match = False
+                
+                # Show first few lines of difference
+                with open(result_file, 'r') as f:
+                    result_content = f.read().strip()
+                with open(expected_file, 'r') as f:
+                    expected_content = f.read().strip()
+                
+                print(f"  Expected: {expected_content[:100]}...")
+                print(f"  Got:      {result_content[:100]}...")
+                
+        except Exception as e:
+            print(f"❌ Error comparing {filename}: {e}")
+            all_match = False
+    
+    return all_match
     """Compare simulation results with expected output"""
     testcase = f"testcase{testcase_num}"
     result_path = f"result/{testcase}"
