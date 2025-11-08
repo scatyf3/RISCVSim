@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-智能代码合并脚本
-将头文件和源文件合并为单个 main.cpp，避免重复定义
+Smart Code Merger Script
+Merge header files and source files into a single main.cpp, avoiding duplicate definitions
 """
 
 import os
@@ -14,7 +14,7 @@ class SmartMerger:
         self.output_lines = []
         
     def extract_system_includes(self, content):
-        """提取系统头文件包含"""
+        """Extract system header includes"""
         lines = content.split('\n')
         includes = []
         for line in lines:
@@ -26,7 +26,7 @@ class SmartMerger:
         return includes
     
     def remove_include_guards(self, content):
-        """移除头文件保护宏"""
+        """Remove header file include guards"""
         lines = content.split('\n')
         result = []
         skip_next_define = False
@@ -34,17 +34,17 @@ class SmartMerger:
         for line in lines:
             stripped = line.strip()
             
-            # 跳过 #ifndef XXX_H
+            # Skip #ifndef XXX_H
             if re.match(r'#ifndef\s+\w+_H', stripped):
                 skip_next_define = True
                 continue
             
-            # 跳过 #define XXX_H
+            # Skip #define XXX_H
             if skip_next_define and re.match(r'#define\s+\w+_H', stripped):
                 skip_next_define = False
                 continue
             
-            # 跳过 #endif // XXX_H (文件末尾的)
+            # Skip #endif // XXX_H (at end of file)
             if re.match(r'#endif\s*//.*_H', stripped):
                 continue
                 
@@ -53,13 +53,13 @@ class SmartMerger:
         return '\n'.join(result)
     
     def remove_local_includes(self, content):
-        """移除本地头文件包含"""
+        """Remove local header file includes"""
         lines = content.split('\n')
         result = []
         
         for line in lines:
             stripped = line.strip()
-            # 跳过本地包含 #include "xxx.h"
+            # Skip local includes #include "xxx.h"
             if stripped.startswith('#include "'):
                 continue
             result.append(line)
@@ -67,7 +67,7 @@ class SmartMerger:
         return '\n'.join(result)
     
     def remove_using_namespace(self, content):
-        """移除 using namespace 语句（稍后统一添加）"""
+        """Remove using namespace statements (will be added later uniformly)"""
         lines = content.split('\n')
         result = []
         
@@ -80,47 +80,47 @@ class SmartMerger:
         return '\n'.join(result)
     
     def process_header(self, file_path):
-        """处理头文件：提取类声明"""
-        print(f"处理头文件: {file_path}")
+        """Process header file: extract class declarations"""
+        print(f"Processing header file: {file_path}")
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # 提取系统包含
+        # Extract system includes
         self.extract_system_includes(content)
         
-        # 移除包含保护
+        # Remove include guards
         content = self.remove_include_guards(content)
         
-        # 移除本地包含
+        # Remove local includes
         content = self.remove_local_includes(content)
         
-        # 移除 using namespace
+        # Remove using namespace
         content = self.remove_using_namespace(content)
         
         return content.strip()
     
     def process_source(self, file_path):
-        """处理源文件：提取函数实现"""
-        print(f"处理源文件: {file_path}")
+        """Process source file: extract function implementations"""
+        print(f"Processing source file: {file_path}")
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # 提取系统包含
+        # Extract system includes
         self.extract_system_includes(content)
         
-        # 移除所有包含语句
+        # Remove all include statements
         content = self.remove_local_includes(content)
         
-        # 移除 using 语句（我们会在文件开头统一添加）
+        # Remove using statements (we'll add them uniformly at the beginning of file)
         lines = content.split('\n')
         result = []
         
         for line in lines:
             stripped = line.strip()
-            # 跳过包含语句
+            # Skip include statements
             if stripped.startswith('#include'):
                 continue
-            # 跳过 using 语句
+            # Skip using statements
             if stripped.startswith('using std::') or stripped.startswith('using namespace'):
                 continue
             result.append(line)
@@ -128,16 +128,16 @@ class SmartMerger:
         return '\n'.join(result).strip()
     
     def merge_files(self):
-        """合并所有文件"""
+        """Merge all files"""
         
-        # 1. 添加系统头文件
+        # 1. Add system header files
         print("=" * 60)
-        print("开始合并文件...")
+        print("Starting file merge...")
         print("=" * 60)
         
-        self.output_lines.append("// ==================== 系统头文件 ====================")
+        self.output_lines.append("// ==================== System Headers ====================")
         
-        # 必需的系统头文件
+        # Required system header files
         required_includes = [
             "#include <iostream>",
             "#include <string>",
@@ -157,8 +157,8 @@ class SmartMerger:
         self.output_lines.append("using namespace std;")
         self.output_lines.append("")
         
-        # 2. 添加头文件内容（类声明）
-        self.output_lines.append("// ==================== 类声明 (来自头文件) ====================")
+        # 2. Add header file content (class declarations)
+        self.output_lines.append("// ==================== Class Declarations (from headers) ====================")
         
         header_files = [
             'include/common.h',
@@ -176,8 +176,8 @@ class SmartMerger:
                     self.output_lines.append(content)
                     self.output_lines.append("")
         
-        # 3. 添加源文件内容（函数实现）
-        self.output_lines.append("\n// ==================== 函数实现 (来自源文件) ====================")
+        # 3. Add source file content (function implementations)
+        self.output_lines.append("\n// ==================== Function Implementations (from sources) ====================")
         
         source_files = [
             'src/insmem.cpp',
@@ -194,16 +194,16 @@ class SmartMerger:
                     self.output_lines.append(content)
                     self.output_lines.append("")
         
-        # 4. 添加 main 函数
+        # 4. Add main function
         if os.path.exists('sim.cpp'):
-            print("处理主文件: sim.cpp")
+            print("Processing main file: sim.cpp")
             with open('sim.cpp', 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # 提取系统包含
+            # Extract system includes
             self.extract_system_includes(content)
             
-            # 移除包含语句
+            # Remove include statements
             lines = content.split('\n')
             result = []
             for line in lines:
@@ -211,61 +211,61 @@ class SmartMerger:
                 if not stripped.startswith('#include'):
                     result.append(line)
             
-            self.output_lines.append("\n// ==================== Main 函数 (来自 sim.cpp) ====================")
+            self.output_lines.append("\n// ==================== Main Function (from sim.cpp) ====================")
             self.output_lines.append('\n'.join(result))
         
         print("=" * 60)
-        print("合并完成！")
+        print("Merge completed!")
         print("=" * 60)
     
     def write_output(self, output_file):
-        """写入输出文件"""
+        """Write output file"""
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write('\n'.join(self.output_lines))
         
-        print(f"\n✅ 成功创建: {output_file}")
-        print(f"📊 总行数: {len(self.output_lines)}")
+        print(f"\n✅ Successfully created: {output_file}")
+        print(f"📊 Total lines: {len(self.output_lines)}")
         
 def create_submission_structure():
-    """创建提交目录结构"""
-    print("\n创建目录结构...")
+    """Create submission directory structure"""
+    print("\nCreating directory structure...")
     
-    # 创建目录
+    # Create directories
     os.makedirs('phase1/code', exist_ok=True)
     os.makedirs('phase1/submissions', exist_ok=True)
     
-    # 合并代码
+    # Merge code
     merger = SmartMerger()
     merger.merge_files()
     merger.write_output('phase1/code/main.cpp')
     
-    # 拷贝 README.md 到 code 目录
+    # Copy README.md to code directory
     import shutil
     if os.path.exists('README.md'):
         shutil.copy2('README.md', 'phase1/code/README.md')
-        print(f"✅ 拷贝项目文档: phase1/code/README.md")
+        print(f"✅ Copied project documentation: phase1/code/README.md")
     
-    # 拷贝测试脚本到 code 目录
+    # Copy test script to code directory
     if os.path.exists('test.py'):
         shutil.copy2('test.py', 'phase1/code/test.py')
-        print(f"✅ 拷贝测试脚本: phase1/code/test.py")
+        print(f"✅ Copied test script: phase1/code/test.py")
     
-    # 拷贝测试用例到 code 目录
+    # Copy test cases to code directory
     if os.path.exists('Sample_Testcases_SS_FS'):
         shutil.copytree('Sample_Testcases_SS_FS', 'phase1/code/Sample_Testcases_SS_FS', dirs_exist_ok=True)
-        print(f"✅ 拷贝测试用例: phase1/code/Sample_Testcases_SS_FS")
+        print(f"✅ Copied test cases: phase1/code/Sample_Testcases_SS_FS")
     
-    # 创建简单的编译脚本（不使用 Makefile）
+    # Create simple compilation script (without using Makefile)
     compile_script = """#!/bin/bash
-# 简单编译脚本
-echo "编译 RISC-V 模拟器..."
+# Simple compilation script
+echo "Compiling RISC-V Simulator..."
 g++ -std=c++17 -Wall -Wextra -o simulator main.cpp
 if [ $? -eq 0 ]; then
-    echo "✅ 编译成功: simulator"
+    echo "✅ Compilation successful: simulator"
 else
-    echo "❌ 编译失败"
+    echo "❌ Compilation failed"
     exit 1
 fi
 """
@@ -273,34 +273,34 @@ fi
     with open('phase1/code/compile.sh', 'w', encoding='utf-8') as f:
         f.write(compile_script)
     
-    # 设置执行权限
+    # Set execution permissions
     import stat
     os.chmod('phase1/code/compile.sh', stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
     
-    print(f"✅ 创建编译脚本: phase1/code/compile.sh")
+    print(f"✅ Created compilation script: phase1/code/compile.sh")
     
-    # 拷贝 submission.md 到 submissions 目录
+    # Copy submission.md to submissions directory
     if os.path.exists('submission.md'):
         shutil.copy2('submission.md', 'phase1/submissions/submission.md')
-        print(f"✅ 拷贝提交说明: phase1/submissions/submission.md")
+        print(f"✅ Copied submission documentation: phase1/submissions/submission.md")
     
     print("\n" + "=" * 60)
-    print("📦 完整提交包结构创建完成！")
+    print("📦 Complete submission package structure created!")
     print("=" * 60)
-    print("\n目录结构:")
+    print("\nDirectory structure:")
     print("phase1/")
     print("├── code/")
-    print("│   ├── main.cpp                    # 合并的源代码")
-    print("│   ├── compile.sh                  # 编译脚本")
-    print("│   ├── test.py                     # 自动化测试")
-    print("│   ├── README.md                   # 项目文档")  
-    print("│   └── Sample_Testcases_SS_FS/    # 测试用例")
+    print("│   ├── main.cpp                    # Merged source code")
+    print("│   ├── compile.sh                  # Compilation script")
+    print("│   ├── test.py                     # Automated testing")
+    print("│   ├── README.md                   # Project documentation")  
+    print("│   └── Sample_Testcases_SS_FS/    # Test cases")
     print("└── submissions/")
-    print("    └── submission.md              # 提交说明")
-    print("\n下一步:")
-    print("1. cd phase1/code && ./compile.sh   # 测试编译")
-    print("2. python3 test.py                  # 运行测试")
-    print("3. cd ../.. && zip -r phase1.zip phase1/  # 创建提交压缩包")
+    print("    └── submission.md              # Submission documentation")
+    print("\nNext steps:")
+    print("1. cd phase1/code && ./compile.sh   # Test compilation")
+    print("2. python3 test.py                  # Run tests")
+    print("3. cd ../.. && zip -r phase1.zip phase1/  # Create submission package")
     print()
 
 if __name__ == "__main__":

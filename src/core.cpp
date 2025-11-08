@@ -22,6 +22,40 @@ void Core::setOutputDirectory(const string& outputDir) {
     std::filesystem::create_directories(ioDir, ec); 
 }
 
+void Core::outputPerformanceMetrics(const std::string& output_dir) {
+    std::string filename = output_dir + "/PerformanceMetrics.txt";
+    std::ofstream outFile;
+    
+    // Check if this is the first core writing to the file
+    bool is_first_write = !std::ifstream(filename).good();
+    
+    if (is_first_write) {
+        outFile.open(filename);  // Create new file
+    } else {
+        outFile.open(filename, std::ios::app);  // Append to existing file
+    }
+    
+    if (!outFile.is_open()) {
+        std::cerr << "Error: Unable to open " << filename << " for writing." << std::endl;
+        return;
+    }
+    
+    // Calculate CPI and IPC
+    double cpi = instruction_count > 0 ? (double)cycle / instruction_count : 0.0;
+    double ipc = cycle > 0 ? (double)instruction_count / cycle : 0.0;
+    
+    outFile << "Performance of " << getCoreType() << ":" << std::endl;
+    outFile << "#Cycles -> " << cycle << std::endl;
+    outFile << "#Instructions -> " << instruction_count << std::endl;
+    outFile << "CPI -> " << std::setprecision(16) << cpi << std::endl;
+    outFile << "IPC -> " << std::setprecision(16) << ipc << std::endl;
+    
+    // Add empty line only if this is not the last core
+    outFile << std::endl;
+    
+    outFile.close();
+}
+
 void Core::printState(stateStruct state, int cycle) {
     string outputPath = getStateOutputPath();
     ofstream printstate;
@@ -73,25 +107,11 @@ void SingleStageCore::step() {
             // Check for HALT instruction (all 1s)
             if (instruction.to_ulong() == 0xFFFFFFFF) {
                 nextState.IF.nop = true;
+                instruction_count++; // Count HALT as an instruction
                 
-                // Check if previous instruction was a branch by reading it
-                bool updatePC = true;  // Default: update PC
-                if (state.IF.PC.to_ulong() >= 4) {
-                    bitset<32> prev_pc(state.IF.PC.to_ulong() - 4);
-                    bitset<32> prev_instr = ext_imem.readInstr(prev_pc);
-                    uint32_t prev_opcode = prev_instr.to_ulong() & 0x7F;
-                    
-                    // If previous instruction was NOT a branch, don't update PC
-                    if (prev_opcode != 0x63) {  // 0x63 is B-type (branch)
-                        updatePC = false;
-                    }
-                }
+                // Simple HALT behavior - don't update PC
+                nextState.IF.PC = state.IF.PC;  // Keep current PC
                 
-                if (updatePC) {
-                    nextState.IF.PC = bitset<32>(state.IF.PC.to_ulong() + 4);
-                } else {
-                    nextState.IF.PC = state.IF.PC;  // Keep current PC
-                }
                 // Update state to reflect halt condition for printing
                 state = nextState;
                 myRF.outputRF(cycle, ioDir);
@@ -99,6 +119,9 @@ void SingleStageCore::step() {
                 cycle++;
                 return;
             }
+            
+            // Count this as an executed instruction
+            instruction_count++;
             
             // Decode instruction
             uint32_t instr = static_cast<uint32_t>(instruction.to_ulong());
@@ -259,8 +282,13 @@ void FiveStageCore::setOutputDirectory(const string& outputDir) {
 void FiveStageCore::step() {
             /* Your implementation */
             /* --------------------- WB stage --------------------- */
-            if (!state.WB.nop && state.WB.wrt_enable && state.WB.Wrt_reg_addr.to_ulong() != 0) {
-                myRF.writeRF(state.WB.Wrt_reg_addr, state.WB.Wrt_data);
+            if (!state.WB.nop) {
+                // Count instruction when it completes in WB stage
+                instruction_count++;
+                
+                if (state.WB.wrt_enable && state.WB.Wrt_reg_addr.to_ulong() != 0) {
+                    myRF.writeRF(state.WB.Wrt_reg_addr, state.WB.Wrt_data);
+                }
             }
             
             /* --------------------- MEM stage -------------------- */
@@ -373,7 +401,31 @@ void FiveStageCore::step() {
             nextState.EX.nop = state.ID.nop;
             if (!state.ID.nop) {
                 uint32_t instr = static_cast<uint32_t>(state.ID.Instr.to_ulong());
-                uint32_t opcode = instr & 0x7F;
+                
+                // Check for HALT instruction in ID stage
+                if (instr == 0xFFFFFFFF) {
+                    // Create a special NOP for HALT in EX stage to maintain pipeline flow
+                    // The instruction will be counted when it reaches WB
+                    nextState.EX.nop = false; // Allow it to proceed as a special instruction
+                    nextState.EX.opcode = bitset<7>(0x7F); // Special opcode for HALT
+                    nextState.EX.funct3 = 0;
+                    nextState.EX.funct7 = 0;
+                    nextState.EX.Rs = 0;
+                    nextState.EX.Rt = 0;
+                    nextState.EX.Wrt_reg_addr = 0;
+                    nextState.EX.PC = state.IF.PC;
+                    nextState.EX.Read_data1 = 0;
+                    nextState.EX.Read_data2 = 0;
+                    nextState.EX.Imm = 0;
+                    nextState.EX.is_I_type = false;
+                    nextState.EX.rd_mem = false;
+                    nextState.EX.wrt_mem = false;
+                    nextState.EX.wrt_enable = false;
+                    nextState.EX.is_branch = false;
+                    nextState.EX.is_jump = false;
+                    nextState.EX.alu_op = false;
+                } else {
+                    uint32_t opcode = instr & 0x7F;
                 uint32_t rd = (instr >> 7) & 0x1F;
                 uint32_t funct3 = (instr >> 12) & 0x7;
                 uint32_t rs1 = (instr >> 15) & 0x1F;
@@ -423,6 +475,7 @@ void FiveStageCore::step() {
                 nextState.EX.is_branch = (opcode == 0x63);
                 nextState.EX.is_jump = (opcode == 0x6F || opcode == 0x67);
                 nextState.EX.alu_op = true; // Simplified
+                }  // End of else clause for normal instructions
             } else {
                 nextState.EX.Read_data1 = 0;
                 nextState.EX.Read_data2 = 0;
@@ -451,9 +504,11 @@ void FiveStageCore::step() {
                 
                 // Check for HALT
                 if (instruction.to_ulong() == 0xFFFFFFFF) {
-                    nextState.IF.nop = true;
-                    nextState.ID.nop = true;
+                    // Let HALT instruction enter the pipeline, but don't fetch next instruction
+                    nextState.ID.Instr = instruction;
+                    nextState.IF.nop = true;  // Stop fetching new instructions
                 } else {
+                    nextState.ID.Instr = instruction;
                     // Handle branch/jump from MEM stage
                     if (state.MEM.branch_taken || state.MEM.is_jump) {
                         nextState.IF.PC = state.MEM.branch_target;

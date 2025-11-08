@@ -338,3 +338,9 @@ if (instruction.to_ulong() == 0xFFFFFFFF) {
         nextState.IF.PC = state.IF.PC;  // Keep current PC
     }
 ```
+
+after email TA, they said testcase2 output PC has error behavoir, we need to use testcase0 and 1
+
+## submission
+
+I think put all dependency into one main.cpp is very bad, thus I use previous project structure and a `create_phase1.py` script to merge them into main.cpp

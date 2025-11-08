@@ -3,6 +3,7 @@
 #include "include/datamem.h"
 #include "include/registerfile.h"
 #include "include/core.h"
+#include <cstdio>  // for std::remove
 
 // Function to extract testcase name from path
 string extractTestcaseName(const string& path) {
@@ -59,27 +60,34 @@ int main(int argc, char* argv[]) {
     cout << "Result directory: " << resultDir << endl;
 
 	SingleStageCore SSCore(ioDir, imem, dmem_ss);
-	// FiveStageCore FSCore(ioDir, imem, dmem_fs);  // Disabled for now
+	FiveStageCore FSCore(ioDir, imem, dmem_fs);
 
-    // Set output directory for single stage core
+    // Set output directory for both cores
     SSCore.setOutputDirectory(resultDir);
-    // FSCore.setOutputDirectory(resultDir);  // Disabled for now
+    FSCore.setOutputDirectory(resultDir);
 
     while (1) {
 		if (!SSCore.halted)
 			SSCore.step();
 		
-		// Disable five-stage core execution for now
-		// if (!FSCore.halted)
-		//	FSCore.step();
+		if (!FSCore.halted)
+			FSCore.step();
 
-		if (SSCore.halted) // && FSCore.halted)
+		if (SSCore.halted && FSCore.halted)
 			break;
     }
     
-	// dump SS data mem to result directory (FS disabled for now)
+	// dump both data memories to result directory
 	dmem_ss.outputDataMem(resultDir);
-	// dmem_fs.outputDataMem(resultDir);  // Disabled for now
+	dmem_fs.outputDataMem(resultDir);
+
+    // Clear the performance metrics file and output for both cores
+    string perfFile = resultDir + "/PerformanceMetrics.txt";
+    std::remove(perfFile.c_str());  // Remove existing file to start fresh
+    
+    // Output performance metrics for both cores
+    SSCore.outputPerformanceMetrics(resultDir);
+    FSCore.outputPerformanceMetrics(resultDir);
 
 	return 0;
 }

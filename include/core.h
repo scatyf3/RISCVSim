@@ -10,6 +10,7 @@ class Core {
 public:
     RegisterFile myRF;
     uint32_t cycle = 0;
+    uint32_t instruction_count = 0;
     bool halted = false;
     string ioDir;
     struct stateStruct state, nextState;
@@ -21,10 +22,12 @@ public:
     virtual void step() {}
     virtual void printState() {}
     virtual void setOutputDirectory(const string& outputDir);
+    virtual void outputPerformanceMetrics(const string& outputDir);
     
 protected:
     virtual string getStateOutputPath() const = 0;
     void printState(stateStruct state, int cycle);
+    virtual string getCoreType() const = 0;
 };
 
 class SingleStageCore : public Core {
@@ -36,6 +39,7 @@ public:
 
 protected:
     string getStateOutputPath() const override { return opFilePath; }
+    string getCoreType() const override { return "Single Stage"; }
 
 private:
     stateStruct state, nextState;
@@ -52,6 +56,7 @@ public:
 
 protected:
     string getStateOutputPath() const override { return opFilePath; }
+    string getCoreType() const override { return "Five Stage"; }
 
 private:
     stateStruct state, nextState;
