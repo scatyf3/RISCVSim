@@ -179,12 +179,15 @@ class FiveStageCore {
 
     int cycle;
     int num_instr;
-    bool halted;
 
 public:
-    FiveStageCore(string ioDir, InsMem* imem, DataMem* dmem);
+    bool halted;
+    
+    FiveStageCore(string ioDir, InsMem& imem, DataMem& dmem);
     void step();
     bool isHalted() const;
-    void printState(int cycle);
+    void printState(State_five state, int cycle);
+    void setOutputDirectory(const string& outputDir);
+    void outputPerformanceMetrics(const string& outputDir);
 };
 #endif // CORE_H

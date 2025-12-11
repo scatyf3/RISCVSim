@@ -9,6 +9,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <filesystem>
 
 // Core class implementations
@@ -281,89 +282,6 @@ static string int2bin(uint32_t val) {
 }
 
 // ==========================================
-// MEMORY/REGISTER IMPLEMENTATIONS
-// ==========================================
-// Note: These implement the specific interfaces provided. 
-// Logic assumes Little-Endian for Memory.
-
-// --- RegisterFile ---
-RegisterFile::RegisterFile(string ioDir) : Registers(32, 0), filePrefix("FS_") {
-    outputFile = ioDir + "/" + filePrefix + "RFResult.txt";
-}
-
-bitset<32> RegisterFile::readRF(bitset<5> Reg_addr) {
-    return Registers[Reg_addr.to_ulong()];
-}
-
-void RegisterFile::writeRF(bitset<5> Reg_addr, bitset<32> Wrt_reg_data) {
-    if (Reg_addr.to_ulong() != 0) {
-        Registers[Reg_addr.to_ulong()] = Wrt_reg_data;
-    }
-}
-
-void RegisterFile::outputRF(int cycle) {
-    // Basic dump implementation for debugging
-}
-
-void RegisterFile::setFilePrefix(string prefix) {
-    filePrefix = prefix;
-}
-
-// --- InsMem ---
-InsMem::InsMem(string name, string ioDir) : id(name), ioDir(ioDir) {
-    // Mock: initialize with size, in real scenario read from file
-    IMem.resize(1024, bitset<8>(0)); 
-}
-
-bitset<32> InsMem::readInstr(bitset<32> ReadAddress) {
-    unsigned long addr = ReadAddress.to_ulong();
-    if (addr + 3 >= IMem.size()) return bitset<32>(0xFFFFFFFF); // OOB return 1s
-
-    // Little Endian Read: [Byte3][Byte2][Byte1][Byte0]
-    uint32_t val = 0;
-    val |= IMem[addr].to_ulong();
-    val |= (IMem[addr+1].to_ulong() << 8);
-    val |= (IMem[addr+2].to_ulong() << 16);
-    val |= (IMem[addr+3].to_ulong() << 24);
-    return bitset<32>(val);
-}
-
-string InsMem::getFileSeparator() { return "/"; }
-
-// --- DataMem ---
-DataMem::DataMem(string name, string ioDir) : id(name), ioDir(ioDir) {
-    DMem.resize(1024, bitset<8>(0));
-}
-
-bitset<32> DataMem::readDataMem(bitset<32> Address) {
-    unsigned long addr = Address.to_ulong();
-    if (addr + 3 >= DMem.size()) return bitset<32>(0); 
-
-    // Little Endian Read
-    uint32_t val = 0;
-    val |= DMem[addr].to_ulong();
-    val |= (DMem[addr+1].to_ulong() << 8);
-    val |= (DMem[addr+2].to_ulong() << 16);
-    val |= (DMem[addr+3].to_ulong() << 24);
-    return bitset<32>(val);
-}
-
-void DataMem::writeDataMem(bitset<32> Address, bitset<32> WriteData) {
-    unsigned long addr = Address.to_ulong();
-    unsigned long data = WriteData.to_ulong();
-    
-    if (addr + 3 >= DMem.size()) return;
-
-    // Little Endian Write
-    DMem[addr]   = bitset<8>(data & 0xFF);
-    DMem[addr+1] = bitset<8>((data >> 8) & 0xFF);
-    DMem[addr+2] = bitset<8>((data >> 16) & 0xFF);
-    DMem[addr+3] = bitset<8>((data >> 24) & 0xFF);
-}
-
-string DataMem::getFileSeparator() { return "/"; }
-
-
 // ==========================================
 // STAGE LOGIC
 // ==========================================
@@ -646,28 +564,29 @@ void WriteBackStage::run() {
 // CORE CLASS IMPLEMENTATION
 // ==========================================
 
-FiveStageCore::FiveStageCore(string ioDir, InsMem* imem, DataMem* dmem)
+FiveStageCore::FiveStageCore(string ioDir, InsMem& imem, DataMem& dmem)
     : ioDir(ioDir), 
       opFilePath(ioDir + "/StateResult_FS.txt"),
-      ext_imem(imem), 
-      ext_dmem(dmem),
+      ext_imem(&imem), 
+      ext_dmem(&dmem),
       myRF(ioDir),
-      if_stage(&state, imem),
+      if_stage(&state, &imem),
       id_stage(&state, &myRF),
       ex_stage(&state),
-      mem_stage(&state, dmem),
+      mem_stage(&state, &dmem),
       wb_stage(&state, &myRF),
       cycle(0), num_instr(0), halted(false) {
           myRF.setFilePrefix("FS_");
       }
 
 void FiveStageCore::step() {
-    if (state.IF.nop && state.ID.nop && state.EX.nop && state.MEM.nop && state.WB.nop) {
-        halted = true;
-        return;
-    }
-
-    uint32_t current_instr = state.ID.instr;
+    // Check if already halted (all stages were nop in previous cycle)
+    bool was_all_nop = state.IF.nop && state.ID.nop && state.EX.nop && state.MEM.nop && state.WB.nop;
+    
+    // Remember states before running stages
+    bool id_was_nop = state.ID.nop;
+    bool if_was_nop = state.IF.nop;
+    uint32_t prev_id_instr = state.ID.instr;
 
     // Run stages in reverse order
     wb_stage.run();
@@ -676,11 +595,28 @@ void FiveStageCore::step() {
     id_stage.run();
     if_stage.run();
 
+    // Count instruction when:
+    // 1. ID was nop but now has an instruction, OR
+    // 2. ID was not nop and now has a different instruction
+    // 3. IF fetched HALT (IF was not nop, but now both IF and ID are nop)
+    if (!state.ID.nop) {
+        if (id_was_nop || state.ID.instr != prev_id_instr) {
+            num_instr++;
+        }
+    } else if (!if_was_nop && state.IF.nop && state.ID.nop) {
+        // IF fetched HALT instruction, count it
+        num_instr++;
+    }
+
     myRF.outputRF(cycle);
     printState(state, cycle);
 
-    if (current_instr != state.ID.instr) num_instr++;
     cycle++;
+    
+    // Set halted if all stages were nop before this step
+    if (was_all_nop) {
+        halted = true;
+    }
 }
 
 bool FiveStageCore::isHalted() const { 
@@ -689,7 +625,7 @@ bool FiveStageCore::isHalted() const {
 
 
 
-void FiveStageCore::printState(stateStruct state, int cycle) {
+void FiveStageCore::printState(State_five state, int cycle) {
     ofstream printstate;
     if (cycle == 0)
         printstate.open(opFilePath, std::ios_base::trunc);
@@ -700,57 +636,83 @@ void FiveStageCore::printState(stateStruct state, int cycle) {
         printstate<<"State after executing cycle: "<<cycle<<endl; 
 
         printstate<<"IF.nop: "<<(state.IF.nop ? "True" : "False")<<endl;
-        printstate<<"IF.PC: "<<state.IF.PC.to_ulong()<<endl;        
+        printstate<<"IF.PC: "<<state.IF.PC<<endl;        
 
         printstate<<"ID.nop: "<<(state.ID.nop ? "True" : "False")<<endl;
-        printstate<<"ID.Instr: "<<state.ID.Instr<<endl; 
+        printstate<<"ID.Instr: "<<bitset<32>(state.ID.instr)<<endl; 
 
         printstate<<"EX.nop: "<<(state.EX.nop ? "True" : "False")<<endl;
-        // Print EX.instr - empty if Instr is 0, otherwise show the instruction
-        if (state.EX.Instr.to_ulong() == 0) {
+        // Print EX.instr - empty if instr is 0, otherwise show the instruction
+        if (state.EX.instr == 0) {
             printstate<<"EX.instr: "<<endl;
         } else {
-            printstate<<"EX.instr: "<<state.EX.Instr<<endl;
+            printstate<<"EX.instr: "<<bitset<32>(state.EX.instr)<<endl;
         }
-        printstate<<"EX.Read_data1: "<<state.EX.Read_data1<<endl;
-        printstate<<"EX.Read_data2: "<<state.EX.Read_data2<<endl;
+        printstate<<"EX.Read_data1: "<<bitset<32>(state.EX.read_data_1)<<endl;
+        printstate<<"EX.Read_data2: "<<bitset<32>(state.EX.read_data_2)<<endl;
         // Imm: 12 bits when EX has/had an instruction, 32 bits only for initial empty state
-        if (state.EX.Instr.to_ulong() == 0) {
-            printstate<<"EX.Imm: "<<state.EX.Imm<<endl;  // 32 bits for initial empty state
+        if (state.EX.instr == 0) {
+            printstate<<"EX.Imm: "<<bitset<32>(state.EX.imm)<<endl;  // 32 bits for initial empty state
         } else {
-            printstate<<"EX.Imm: "<<bitset<12>(state.EX.Imm.to_ulong() & 0xFFF)<<endl;  // 12 bits when has instruction
+            printstate<<"EX.Imm: "<<bitset<12>(state.EX.imm & 0xFFF)<<endl;  // 12 bits when has instruction
         }
-        printstate<<"EX.Rs: "<<state.EX.Rs<<endl;
-        printstate<<"EX.Rt: "<<state.EX.Rt<<endl;
-        // Print Wrt_reg_addr as 6 bits if all zeros (stall bubble), otherwise 5 bits
-        if (state.EX.Wrt_reg_addr.to_ulong() == 0 && state.EX.nop && state.EX.Instr.to_ulong() != 0) {
-            printstate<<"EX.Wrt_reg_addr: "<<bitset<6>(0)<<endl;
-        } else {
-            printstate<<"EX.Wrt_reg_addr: "<<state.EX.Wrt_reg_addr<<endl;
-        }
+        printstate<<"EX.Rs: "<<bitset<5>(state.EX.rs)<<endl;
+        printstate<<"EX.Rt: "<<bitset<5>(state.EX.rt)<<endl;
+        printstate<<"EX.Wrt_reg_addr: "<<bitset<5>(state.EX.write_reg_addr)<<endl;
         printstate<<"EX.is_I_type: "<<(state.EX.is_I_type ? 1 : 0)<<endl; 
-        printstate<<"EX.rd_mem: "<<(state.EX.rd_mem ? 1 : 0)<<endl;
-        printstate<<"EX.wrt_mem: "<<(state.EX.wrt_mem ? 1 : 0)<<endl;        
+        printstate<<"EX.rd_mem: "<<(state.EX.read_mem ? 1 : 0)<<endl;
+        printstate<<"EX.wrt_mem: "<<(state.EX.write_mem ? 1 : 0)<<endl;        
         printstate<<"EX.alu_op: "<<state.EX.alu_op<<endl;
-        printstate<<"EX.wrt_enable: "<<(state.EX.wrt_enable ? 1 : 0)<<endl;
+        printstate<<"EX.wrt_enable: "<<(state.EX.write_enable ? 1 : 0)<<endl;
 
         printstate<<"MEM.nop: "<<(state.MEM.nop ? "True" : "False")<<endl;
-        printstate<<"MEM.ALUresult: "<<state.MEM.ALUresult<<endl;
-        printstate<<"MEM.Store_data: "<<state.MEM.Store_data<<endl; 
-        printstate<<"MEM.Rs: "<<state.MEM.Rs<<endl;
-        printstate<<"MEM.Rt: "<<state.MEM.Rt<<endl;   
-        printstate<<"MEM.Wrt_reg_addr: "<<state.MEM.Wrt_reg_addr<<endl;              
-        printstate<<"MEM.rd_mem: "<<(state.MEM.rd_mem ? 1 : 0)<<endl;
-        printstate<<"MEM.wrt_mem: "<<(state.MEM.wrt_mem ? 1 : 0)<<endl; 
-        printstate<<"MEM.wrt_enable: "<<(state.MEM.wrt_enable ? 1 : 0)<<endl;         
+        printstate<<"MEM.ALUresult: "<<bitset<32>(state.MEM.alu_result)<<endl;
+        printstate<<"MEM.Store_data: "<<bitset<32>(state.MEM.store_data)<<endl; 
+        printstate<<"MEM.Rs: "<<bitset<5>(state.MEM.rs)<<endl;
+        printstate<<"MEM.Rt: "<<bitset<5>(state.MEM.rt)<<endl;   
+        // MEM.Wrt_reg_addr: 6 bits if wrt_enable is 0, otherwise 5 bits
+        if (state.MEM.write_reg_addr == 0 && !state.MEM.write_enable) {
+            printstate<<"MEM.Wrt_reg_addr: "<<bitset<6>(0)<<endl;
+        } else {
+            printstate<<"MEM.Wrt_reg_addr: "<<bitset<5>(state.MEM.write_reg_addr)<<endl;
+        }
+        printstate<<"MEM.rd_mem: "<<(state.MEM.read_mem ? 1 : 0)<<endl;
+        printstate<<"MEM.wrt_mem: "<<(state.MEM.write_mem ? 1 : 0)<<endl; 
+        printstate<<"MEM.wrt_enable: "<<(state.MEM.write_enable ? 1 : 0)<<endl;         
 
         printstate<<"WB.nop: "<<(state.WB.nop ? "True" : "False")<<endl;
-        printstate<<"WB.Wrt_data: "<<state.WB.Wrt_data<<endl;
-        printstate<<"WB.Rs: "<<state.WB.Rs<<endl;
-        printstate<<"WB.Rt: "<<state.WB.Rt<<endl;
-        printstate<<"WB.Wrt_reg_addr: "<<state.WB.Wrt_reg_addr<<endl;
-        printstate<<"WB.wrt_enable: "<<(state.WB.wrt_enable ? 1 : 0)<<endl;
+        printstate<<"WB.Wrt_data: "<<bitset<32>(state.WB.write_data)<<endl;
+        printstate<<"WB.Rs: "<<bitset<5>(state.WB.rs)<<endl;
+        printstate<<"WB.Rt: "<<bitset<5>(state.WB.rt)<<endl;
+        printstate<<"WB.Wrt_reg_addr: "<<bitset<5>(state.WB.write_reg_addr)<<endl;
+        printstate<<"WB.wrt_enable: "<<(state.WB.write_enable ? 1 : 0)<<endl;
     }
     else cout<<"Unable to open FS StateResult output file." << endl;
     printstate.close();
+}
+
+void FiveStageCore::setOutputDirectory(const string& outputDir) {
+    ioDir = outputDir;
+    opFilePath = outputDir + "/StateResult_FS.txt";
+    myRF.outputFile = outputDir + "/FS_RFResult.txt";
+}
+
+void FiveStageCore::outputPerformanceMetrics(const string& outputDir) {
+    string perfFile = outputDir + "/PerformanceMetrics.txt";
+    ofstream perfOut(perfFile, ios::app);
+    if (perfOut.is_open()) {
+        perfOut << "Performance of Five Stage:" << endl;
+        perfOut << "#Cycles -> " << cycle << endl;
+        perfOut << "#Instructions -> " << num_instr << endl;
+        if (num_instr > 0) {
+            double cpi = (double)cycle / num_instr;
+            double ipc = (double)num_instr / cycle;
+            perfOut << "CPI -> " << fixed << setprecision(16) << cpi << endl;
+            perfOut << "IPC -> " << fixed << setprecision(16) << ipc << endl;
+        }
+        perfOut << endl;
+        perfOut.close();
+    } else {
+        cout << "Unable to open performance metrics file: " << perfFile << endl;
+    }
 }
