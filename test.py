@@ -159,11 +159,11 @@ def compare_performance_metrics(testcase_num):
         result_metrics = parse_performance_metrics(result_content)
         expected_metrics = parse_performance_metrics(expected_content)
         
-        # Compare metrics (only Single Stage)
+        # Compare metrics (both Single Stage and Five Stage)
         all_match = True
         tolerance = 1e-10  # Floating point tolerance
         
-        for core_type in ['Single Stage']:  # Only compare Single Stage
+        for core_type in ['Single Stage', 'Five Stage']:  # Compare both cores
             if core_type not in expected_metrics:
                 print(f"❌ Missing {core_type} metrics in expected output")
                 all_match = False
@@ -206,7 +206,7 @@ def compare_performance_metrics(testcase_num):
                 print(f"✅ {core_type} - IPC: {result_core['ipc']:.16f}")
         
         if all_match:
-            print(f"✅ Single Stage performance metrics match!")
+            print(f"✅ All performance metrics match!")
         
         return all_match
         
@@ -257,11 +257,14 @@ def compare_results(testcase_num):
         print(f"Result directory not found: {result_path}")
         return False
     
-    # Files to compare (only Single Stage for basic functionality)
+    # Files to compare (both Single Stage and Five Stage)
     files_to_compare = [
         "StateResult_SS.txt",
         "SS_RFResult.txt",
-        "SS_DMEMResult.txt"
+        "SS_DMEMResult.txt",
+        "StateResult_FS.txt",
+        "FS_RFResult.txt",
+        "FS_DMEMResult.txt"
     ]
     
     all_match = True
