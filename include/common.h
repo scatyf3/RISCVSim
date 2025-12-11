@@ -24,6 +24,7 @@ struct IDStruct {
 };
 
 struct EXStruct {
+    bitset<32>  Instr;      // Current instruction in EX stage
     bitset<32>  Read_data1;
     bitset<32>  Read_data2;
     bitset<32>  Imm;        // Extended to 32-bit for larger immediates
@@ -37,7 +38,7 @@ struct EXStruct {
     bool        is_I_type;
     bool        rd_mem;
     bool        wrt_mem; 
-    bool        alu_op;     // Extended usage for different operations
+    bitset<2>   alu_op;     // ALU operation encoding (00, 01, 10, etc.)
     bool        wrt_enable;
     bool        is_branch;  // Indicates branch instruction
     bool        is_jump;    // Indicates jump instruction
@@ -45,6 +46,7 @@ struct EXStruct {
 };
 
 struct MEMStruct {
+    bitset<32>  Instr;      // Current instruction in MEM stage
     bitset<32>  ALUresult;
     bitset<32>  Store_data;
     bitset<5>   Rs;
@@ -60,6 +62,7 @@ struct MEMStruct {
 };
 
 struct WBStruct {
+    bitset<32>  Instr;      // Current instruction in WB stage
     bitset<32>  Wrt_data;
     bitset<5>   Rs;
     bitset<5>   Rt;     

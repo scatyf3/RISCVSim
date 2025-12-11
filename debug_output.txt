@@ -1,0 +1,3 @@
+IO Directory: Sample_Testcases_SS_FS/input/testcase2
+Testcase: testcase2
+Result directory: result/testcase2

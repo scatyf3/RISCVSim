@@ -248,6 +248,7 @@ class Core {
 hexdump -C Sample_Testcases_SS_FS/input/testcase1/imem.txt | tail -5
 ```
 
+我看到了问题！文件使用的是 Windows 风格的换行符 \r\n (0d 0a)，而且文件末尾没有换行符。这可能会导致读取的字符串包含回车符 \r，从而使bitset构造函数失败。
 
 #### fit data format
 
@@ -343,7 +344,3 @@ after email TA, they said testcase2 output PC has error behavoir, we need to use
 ## submission
 
 I think put all dependency into one main.cpp is very bad, thus I use previous project structure and a `create_phase1.py` script to merge them into main.cpp
-
-
-## Five Stage
-
